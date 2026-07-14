@@ -25,12 +25,102 @@ export interface CarrinhoResponseDTO {
   }[];
 }
 
-export class CarrinhoService {
-  static async criarComItem(
+function validarQuantidade(quantidade: unknown): number {
+  if (typeof quantidade !== "number" || !Number.isInteger(quantidade)) {
+    throw new AppError(
+      "quantidade é obrigatória e deve ser um número inteiro.",
+      400,
+      "BadRequest"
+    );
+  }
+  if (quantidade <= 0) {
+    throw new AppError("quantidade deve ser maior que zero.", 400, "BadRequest");
+  }
+  return quantidade;
+}
+
+async function buscarCarrinhoAtivoOuFalhar(cartId: string, tx: Tx) {
+  const carrinho = await tx.carrinho.findUnique({ where: { id: cartId } });
+  if (!carrinho) {
+    throw new AppError("Carrinho não encontrado.", 404, "NotFound");
+  }
+  if (carrinho.status === "FINALIZADO") {
+    throw new AppError("Carrinho já finalizado.", 409, "Conflict");
+  }
+  return carrinho;
+}
+
+async function recalcularTotais(cartId: string, tx: Tx): Promise<void> {
+  const itens = await tx.itemCarrinho.findMany({ where: { carrinhoId: cartId } });
+
+  const subtotal = itens.reduce(
+    (acumulado, item) => acumulado.plus(item.precoItem),
+    new Prisma.Decimal(0)
+  );
+
+  const carrinho = await tx.carrinho.findUnique({
+    where: { id: cartId },
+    include: { cupom: true },
+  });
+
+  const percentual = carrinho?.cupom
+    ? carrinho.cupom.percentualDesconto
+    : new Prisma.Decimal(0);
+
+  const desconto = subtotal.times(percentual).dividedBy(100);
+  const total = subtotal.minus(desconto);
+
+  await tx.carrinho.update({
+    where: { id: cartId },
+    data: { subtotal, desconto, total },
+  });
+}
+
+async function montarResposta(cartId: string, tx: Tx): Promise<CarrinhoResponseDTO> {
+  const carrinho = await tx.carrinho.findUnique({
+    where: { id: cartId },
+    include: {
+      cupom: true,
+      itens: { include: { produto: true } },
+    },
+  });
+
+  if (!carrinho) {
+    throw new AppError("Carrinho não encontrado.", 404, "NotFound");
+  }
+
+  return {
+    id: carrinho.id,
+    status: carrinho.status,
+    subtotal: carrinho.subtotal.toNumber(),
+    desconto: carrinho.desconto.toNumber(),
+    total: carrinho.total.toNumber(),
+    cupom: carrinho.cupom
+      ? {
+          codigoCupom: carrinho.cupom.codigoCupom,
+          percentualDesconto: carrinho.cupom.percentualDesconto.toNumber(),
+        }
+      : null,
+    itens: carrinho.itens.map((item) => ({
+      id: item.id,
+      produto: {
+        id: item.produto.id,
+        descricaoProduto: item.produto.descricaoProduto,
+        precoLiquido: item.produto.precoLiquido.toNumber(),
+        quantidadeEstoque: item.produto.quantidadeEstoque,
+      },
+      quantidade: item.quantidade,
+      precoItem: item.precoItem.toNumber(),
+    })),
+  };
+}
+
+export const CarrinhoService = {
+  async criarComItem(
     produtoId: string,
     quantidade: unknown
   ): Promise<CarrinhoResponseDTO> {
-    const qtd = this.validarQuantidade(quantidade);
+    const qtd = validarQuantidade(quantidade);
     assertUuidOrNotFound(produtoId, "produtoId");
 
     return prisma.$transaction(async (tx) => {
@@ -55,22 +145,22 @@ export class CarrinhoService {
         data: { carrinhoId: carrinho.id, produtoId, quantidade: qtd, precoItem },
       });
 
-      await this.recalcularTotais(carrinho.id, tx);
-      return this.montarResposta(carrinho.id, tx);
+      await recalcularTotais(carrinho.id, tx);
+      return montarResposta(carrinho.id, tx);
     });
-  }
+  },
 
-  static async adicionarItem(
+  async adicionarItem(
     cartId: string,
     produtoId: string,
     quantidade: unknown
   ): Promise<CarrinhoResponseDTO> {
-    const qtd = this.validarQuantidade(quantidade);
+    const qtd = validarQuantidade(quantidade);
     assertUuidOrNotFound(cartId, "cartId");
     assertUuidOrNotFound(produtoId, "produtoId");
 
     return prisma.$transaction(async (tx) => {
-      await this.buscarCarrinhoAtivoOuFalhar(cartId, tx);
+      await buscarCarrinhoAtivoOuFalhar(cartId, tx);
 
       const produto = await tx.produto.findUnique({ where: { id: produtoId } });
       if (!produto) {
@@ -110,22 +200,22 @@ export class CarrinhoService {
         });
       }
 
-      await this.recalcularTotais(cartId, tx);
-      return this.montarResposta(cartId, tx);
+      await recalcularTotais(cartId, tx);
+      return montarResposta(cartId, tx);
     });
-  }
+  },
 
-  static async atualizarQuantidade(
+  async atualizarQuantidade(
     cartId: string,
     itemId: string,
     quantidade: unknown
   ): Promise<CarrinhoResponseDTO> {
-    const qtd = this.validarQuantidade(quantidade);
+    const qtd = validarQuantidade(quantidade);
     assertUuidOrNotFound(cartId, "cartId");
     assertUuidOrNotFound(itemId, "itemId");
 
     return prisma.$transaction(async (tx) => {
-      await this.buscarCarrinhoAtivoOuFalhar(cartId, tx);
+      await buscarCarrinhoAtivoOuFalhar(cartId, tx);
 
       const item = await tx.itemCarrinho.findFirst({
         where: { id: itemId, carrinhoId: cartId },
@@ -154,17 +244,17 @@ export class CarrinhoService {
         },
       });
 
-      await this.recalcularTotais(cartId, tx);
-      return this.montarResposta(cartId, tx);
+      await recalcularTotais(cartId, tx);
+      return montarResposta(cartId, tx);
     });
-  }
+  },
 
-  static async removerItem(cartId: string, itemId: string): Promise<CarrinhoResponseDTO> {
+  async removerItem(cartId: string, itemId: string): Promise<CarrinhoResponseDTO> {
     assertUuidOrNotFound(cartId, "cartId");
     assertUuidOrNotFound(itemId, "itemId");
 
     return prisma.$transaction(async (tx) => {
-      await this.buscarCarrinhoAtivoOuFalhar(cartId, tx);
+      await buscarCarrinhoAtivoOuFalhar(cartId, tx);
 
       const item = await tx.itemCarrinho.findFirst({
         where: { id: itemId, carrinhoId: cartId },
@@ -175,12 +265,12 @@ export class CarrinhoService {
 
       await tx.itemCarrinho.delete({ where: { id: item.id } });
 
-      await this.recalcularTotais(cartId, tx);
-      return this.montarResposta(cartId, tx);
+      await recalcularTotais(cartId, tx);
+      return montarResposta(cartId, tx);
     });
-  }
+  },
 
-  static async aplicarCupom(
+  async aplicarCupom(
     cartId: string,
     codigoCupom: unknown
   ): Promise<CarrinhoResponseDTO> {
@@ -190,7 +280,7 @@ export class CarrinhoService {
     }
 
     return prisma.$transaction(async (tx) => {
-      await this.buscarCarrinhoAtivoOuFalhar(cartId, tx);
+      await buscarCarrinhoAtivoOuFalhar(cartId, tx);
 
       const cupom = await tx.cupom.findUnique({
         where: { codigoCupom: codigoCupom.trim() },
@@ -201,129 +291,36 @@ export class CarrinhoService {
 
       await tx.carrinho.update({ where: { id: cartId }, data: { cupomId: cupom.id } });
 
-      await this.recalcularTotais(cartId, tx);
-      return this.montarResposta(cartId, tx);
+      await recalcularTotais(cartId, tx);
+      return montarResposta(cartId, tx);
     });
-  }
+  },
 
-  static async removerCupom(cartId: string): Promise<CarrinhoResponseDTO> {
+  async removerCupom(cartId: string): Promise<CarrinhoResponseDTO> {
     assertUuidOrNotFound(cartId, "cartId");
 
     return prisma.$transaction(async (tx) => {
-      await this.buscarCarrinhoAtivoOuFalhar(cartId, tx);
+      await buscarCarrinhoAtivoOuFalhar(cartId, tx);
 
       await tx.carrinho.update({ where: { id: cartId }, data: { cupomId: null } });
 
-      await this.recalcularTotais(cartId, tx);
-      return this.montarResposta(cartId, tx);
+      await recalcularTotais(cartId, tx);
+      return montarResposta(cartId, tx);
     });
-  }
+  },
 
-  static async checkout(cartId: string): Promise<CarrinhoResponseDTO> {
+  async checkout(cartId: string): Promise<CarrinhoResponseDTO> {
     assertUuidOrNotFound(cartId, "cartId");
 
     return prisma.$transaction(async (tx) => {
-      await this.buscarCarrinhoAtivoOuFalhar(cartId, tx);
+      await buscarCarrinhoAtivoOuFalhar(cartId, tx);
 
       await tx.carrinho.update({
         where: { id: cartId },
         data: { status: "FINALIZADO" },
       });
 
-      return this.montarResposta(cartId, tx);
+      return montarResposta(cartId, tx);
     });
-  }
-
-  private static validarQuantidade(quantidade: unknown): number {
-    if (typeof quantidade !== "number" || !Number.isInteger(quantidade)) {
-      throw new AppError(
-        "quantidade é obrigatória e deve ser um número inteiro.",
-        400,
-        "BadRequest"
-      );
-    }
-    if (quantidade <= 0) {
-      throw new AppError("quantidade deve ser maior que zero.", 400, "BadRequest");
-    }
-    return quantidade;
-  }
-
-  private static async buscarCarrinhoAtivoOuFalhar(cartId: string, tx: Tx) {
-    const carrinho = await tx.carrinho.findUnique({ where: { id: cartId } });
-    if (!carrinho) {
-      throw new AppError("Carrinho não encontrado.", 404, "NotFound");
-    }
-    if (carrinho.status === "FINALIZADO") {
-      throw new AppError("Carrinho já finalizado.", 409, "Conflict");
-    }
-    return carrinho;
-  }
-
-  private static async recalcularTotais(cartId: string, tx: Tx): Promise<void> {
-    const itens = await tx.itemCarrinho.findMany({ where: { carrinhoId: cartId } });
-
-    const subtotal = itens.reduce(
-      (acumulado, item) => acumulado.plus(item.precoItem),
-      new Prisma.Decimal(0)
-    );
-
-    const carrinho = await tx.carrinho.findUnique({
-      where: { id: cartId },
-      include: { cupom: true },
-    });
-
-    const percentual = carrinho?.cupom
-      ? carrinho.cupom.percentualDesconto
-      : new Prisma.Decimal(0);
-
-    const desconto = subtotal.times(percentual).dividedBy(100);
-    const total = subtotal.minus(desconto);
-
-    await tx.carrinho.update({
-      where: { id: cartId },
-      data: { subtotal, desconto, total },
-    });
-  }
-
-  private static async montarResposta(
-    cartId: string,
-    tx: Tx
-  ): Promise<CarrinhoResponseDTO> {
-    const carrinho = await tx.carrinho.findUnique({
-      where: { id: cartId },
-      include: {
-        cupom: true,
-        itens: { include: { produto: true } },
-      },
-    });
-
-    if (!carrinho) {
-      throw new AppError("Carrinho não encontrado.", 404, "NotFound");
-    }
-
-    return {
-      id: carrinho.id,
-      status: carrinho.status,
-      subtotal: carrinho.subtotal.toNumber(),
-      desconto: carrinho.desconto.toNumber(),
-      total: carrinho.total.toNumber(),
-      cupom: carrinho.cupom
-        ? {
-            codigoCupom: carrinho.cupom.codigoCupom,
-            percentualDesconto: carrinho.cupom.percentualDesconto.toNumber(),
-          }
-        : null,
-      itens: carrinho.itens.map((item) => ({
-        id: item.id,
-        produto: {
-          id: item.produto.id,
-          descricaoProduto: item.produto.descricaoProduto,
-          precoLiquido: item.produto.precoLiquido.toNumber(),
-          quantidadeEstoque: item.produto.quantidadeEstoque,
-        },
-        quantidade: item.quantidade,
-        precoItem: item.precoItem.toNumber(),
-      })),
-    };
-  }
-}
+  },
+};
