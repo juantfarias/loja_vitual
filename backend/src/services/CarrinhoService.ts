@@ -287,7 +287,7 @@ export const CarrinhoService = {
         where: { codigoCupom: codigoCupom.trim() },
       });
       if (!cupom) {
-        throw new AppError("Cupom com codigoCupom inválido.", 404, "NotFound");
+        throw new AppError("Cupom inválido.", 404, "NotFound");
       }
 
       await tx.carrinho.update({ where: { id: cartId }, data: { cupomId: cupom.id } });

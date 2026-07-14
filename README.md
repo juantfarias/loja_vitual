@@ -309,7 +309,7 @@ Aplica um cupom ao carrinho. Se já houver um cupom vinculado, ele é substituí
 | Status | Causa                                                    |
 |--------|---------------------------------------------------------|
 | `400`  | `codigoCupom` ausente/vazio                              |
-| `404`  | `cartId` malformado/inexistente, ou cupom inexistente (`"Cupom com codigoCupom inválido."`) |
+| `404`  | `cartId` malformado/inexistente, ou cupom inexistente (`"Cupom inválido."`) |
 | `409`  | Carrinho já finalizado                                    |
 
 ---
