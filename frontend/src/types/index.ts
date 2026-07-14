@@ -32,6 +32,7 @@ export interface ProdutoResumoCarrinho {
   id: string;
   descricaoProduto: string;
   precoLiquido: number;
+  quantidadeEstoque: number;
 }
 
 export interface ItemCarrinhoDetalhado {

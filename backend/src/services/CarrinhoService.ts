@@ -14,7 +14,12 @@ export interface CarrinhoResponseDTO {
   cupom: { codigoCupom: string; percentualDesconto: number } | null;
   itens: {
     id: string;
-    produto: { id: string; descricaoProduto: string; precoLiquido: number };
+    produto: {
+      id: string;
+      descricaoProduto: string;
+      precoLiquido: number;
+      quantidadeEstoque: number;
+    };
     quantidade: number;
     precoItem: number;
   }[];
@@ -314,6 +319,7 @@ export class CarrinhoService {
           id: item.produto.id,
           descricaoProduto: item.produto.descricaoProduto,
           precoLiquido: item.produto.precoLiquido.toNumber(),
+          quantidadeEstoque: item.produto.quantidadeEstoque,
         },
         quantidade: item.quantidade,
         precoItem: item.precoItem.toNumber(),
