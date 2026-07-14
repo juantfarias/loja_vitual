@@ -2,9 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import produtos from "./seed-data/catalogoProdutos.json";
 import cupons from "./seed-data/cupons.json";
 
-const prisma = new PrismaClient();
-
-async function main() {
+export async function seedDatabase(prisma: PrismaClient): Promise<void> {
   await prisma.itemCarrinho.deleteMany();
   await prisma.carrinho.deleteMany();
   await prisma.produto.deleteMany();
@@ -18,11 +16,15 @@ async function main() {
   );
 }
 
-main()
-  .catch((error) => {
-    console.error("Erro ao executar o seed:", error);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+if (require.main === module) {
+  const prisma = new PrismaClient();
+
+  seedDatabase(prisma)
+    .catch((error) => {
+      console.error("Erro ao executar o seed:", error);
+      process.exit(1);
+    })
+    .finally(async () => {
+      await prisma.$disconnect();
+    });
+}

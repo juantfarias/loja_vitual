@@ -13,5 +13,6 @@
 **/dist/
 **/build/
 **/.env
+**/.env.test
 **/*.log
 **/.DS_Store

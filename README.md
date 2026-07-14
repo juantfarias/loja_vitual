@@ -123,6 +123,16 @@ npm run dev                 # http://localhost:5173
 
 Abra `http://localhost:5173` — o catálogo carrega os produtos reais do banco.
 
+### 4. Testes (back-end)
+
+```bash
+cd backend
+cp .env.test.example .env.test   # aponta pra um banco de teste isolado (cart_db_test)
+npm test                          # roda a suite de integração inteira
+```
+
+Suite de integração em cascata (`backend/tests/`), rodando com Vitest + Supertest direto contra o app Express (sem porta real). Antes de cada execução, o `globalSetup` reseta e re-seeda automaticamente o banco `cart_db_test` — **nunca** toca no `cart_db` de desenvolvimento (bancos diferentes, mesma instância do Postgres). `carrinho.cascade.test.ts` percorre uma sessão completa (criar carrinho, somar/substituir quantidade, estoque, cupom, remoção, checkout, imutabilidade pós-checkout), com cada etapa reaproveitando o estado (`cartId`/`itemId`) da etapa anterior.
+
 ### Variáveis de ambiente (`backend/.env`)
 
 | Variável            | Descrição                                      | Exemplo                                                              |
