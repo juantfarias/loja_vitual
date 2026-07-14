@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response, Router } from "express";
+import { CarrinhoController } from "../controllers/CarrinhoController";
 import { ProdutoService } from "../services/ProdutoService";
 
 const routes = Router();
@@ -18,5 +19,13 @@ routes.get(
     }
   }
 );
+
+routes.post("/api/carrinhos", CarrinhoController.criar);
+routes.post("/api/carrinhos/:cartId/itens", CarrinhoController.adicionarItem);
+routes.put("/api/carrinhos/:cartId/itens/:itemId", CarrinhoController.atualizarItem);
+routes.delete("/api/carrinhos/:cartId/itens/:itemId", CarrinhoController.removerItem);
+routes.post("/api/carrinhos/:cartId/cupom", CarrinhoController.aplicarCupom);
+routes.delete("/api/carrinhos/:cartId/cupom", CarrinhoController.removerCupom);
+routes.post("/api/carrinhos/:cartId/checkout", CarrinhoController.checkout);
 
 export { routes };

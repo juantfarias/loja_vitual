@@ -27,3 +27,31 @@ export interface Carrinho {
   total: number;
   cupomId?: string;
 }
+
+export interface ProdutoResumoCarrinho {
+  id: string;
+  descricaoProduto: string;
+  precoLiquido: number;
+}
+
+export interface ItemCarrinhoDetalhado {
+  id: string;
+  produto: ProdutoResumoCarrinho;
+  quantidade: number;
+  precoItem: number;
+}
+
+export interface CupomAplicado {
+  codigoCupom: string;
+  percentualDesconto: number;
+}
+
+export interface CarrinhoResponse {
+  id: string;
+  status: "ABERTO" | "FINALIZADO";
+  subtotal: number;
+  desconto: number;
+  total: number;
+  cupom: CupomAplicado | null;
+  itens: ItemCarrinhoDetalhado[];
+}
