@@ -8,7 +8,7 @@ interface ProductGridProps {
   carregando: boolean;
   erro: string | null;
   desabilitarAcoes: boolean;
-  onAdicionar: (produtoId: string) => void;
+  onAdicionar: (produtoId: number) => void;
 }
 
 export function ProductGrid({

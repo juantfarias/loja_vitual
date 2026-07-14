@@ -8,10 +8,10 @@ datasource db {
 }
 
 model Produto {
-  id                String   @id @default(uuid()) @db.Uuid
+  id                Int     @id @default(autoincrement())
   descricaoProduto  String
   quantidadeEstoque Int
-  precoLiquido      Decimal  @db.Decimal(10, 2)
+  precoLiquido      Decimal @db.Decimal(10, 2)
 
   itensCarrinho ItemCarrinho[]
 
@@ -19,7 +19,7 @@ model Produto {
 }
 
 model Cupom {
-  id                 String  @id @default(uuid()) @db.Uuid
+  id                 Int     @id @default(autoincrement())
   codigoCupom        String  @unique
   percentualDesconto Decimal @db.Decimal(5, 2)
 
@@ -34,7 +34,7 @@ model Carrinho {
   subtotal Decimal @db.Decimal(10, 2)
   desconto Decimal @db.Decimal(10, 2)
   total    Decimal @db.Decimal(10, 2)
-  cupomId  String? @db.Uuid
+  cupomId  Int?
 
   cupom Cupom?         @relation(fields: [cupomId], references: [id])
   itens ItemCarrinho[]
@@ -45,7 +45,7 @@ model Carrinho {
 model ItemCarrinho {
   id         String  @id @default(uuid()) @db.Uuid
   carrinhoId String  @db.Uuid
-  produtoId  String  @db.Uuid
+  produtoId  Int
   quantidade Int
   precoItem  Decimal @db.Decimal(10, 2)
 

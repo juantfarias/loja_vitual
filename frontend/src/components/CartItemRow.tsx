@@ -21,7 +21,7 @@ export function CartItemRow({
   return (
     <div className="flex gap-3 py-4">
       <img
-        src={getProdutoImagemUrl(item.produto.descricaoProduto, 160)}
+        src={getProdutoImagemUrl(item.produto.descricaoProduto)}
         alt={item.produto.descricaoProduto}
         className="h-16 w-16 shrink-0 rounded-md object-cover"
       />

@@ -81,10 +81,12 @@ O carrinho é 100% controlado pelo back-end: o Zustand nunca calcula preço, des
 
 | Modelo         | Campos                                                                                   |
 |----------------|-------------------------------------------------------------------------------------------|
-| `Produto`      | `id` (UUID), `descricaoProduto`, `quantidadeEstoque` (Int), `precoLiquido` (Decimal)      |
-| `Cupom`        | `id` (UUID), `codigoCupom` (único), `percentualDesconto` (Decimal)                        |
-| `Carrinho`     | `id` (UUID), `status` (`ABERTO`/`FINALIZADO`), `subtotal`, `desconto`, `total` (Decimal), `cupomId` (opcional) |
-| `ItemCarrinho` | `id` (UUID), `carrinhoId`, `produtoId`, `quantidade` (Int), `precoItem` (Decimal)          |
+| `Produto`      | `id` (Int, autoincrement), `descricaoProduto`, `quantidadeEstoque` (Int), `precoLiquido` (Decimal) |
+| `Cupom`        | `id` (Int, autoincrement), `codigoCupom` (único), `percentualDesconto` (Decimal)          |
+| `Carrinho`     | `id` (UUID), `status` (`ABERTO`/`FINALIZADO`), `subtotal`, `desconto`, `total` (Decimal), `cupomId` (Int, opcional) |
+| `ItemCarrinho` | `id` (UUID), `carrinhoId` (UUID), `produtoId` (Int), `quantidade` (Int), `precoItem` (Decimal) |
+
+`Produto` e `Cupom` usam `id` numérico porque são catálogo estático, seedado a partir de `backend/prisma/seed-data/catalogoProdutos.json` e `cupons.json` (arquivos fornecidos, com os mesmos `id`s preservados no seed). `Carrinho` e `ItemCarrinho` são entidades criadas em runtime e usam UUID.
 
 Valores monetários são `Decimal` no banco e nos cálculos (nunca `float`, para evitar erro de arredondamento); a API converte para `number` só na resposta JSON.
 
@@ -107,7 +109,7 @@ cd backend
 npm install
 cp .env.example .env      # já vem preenchido para rodar com o docker-compose acima
 npm run migrate           # cria as tabelas
-npm run seed               # popula 10 produtos e os cupons 10OFF / 15OFF
+npm run seed               # popula produtos e cupons a partir de prisma/seed-data/*.json
 npm run dev                 # http://localhost:3333
 ```
 
@@ -143,12 +145,12 @@ Toda resposta de erro (qualquer rota) segue o mesmo formato, produzido pelo `err
 | Status | `error`               | Quando acontece                                                                 |
 |--------|------------------------|-----------------------------------------------------------------------------------|
 | `400`  | `BadRequest`           | `quantidade` ausente/não-inteira/≤ 0, ou `codigoCupom` vazio                     |
-| `404`  | `NotFound`             | `cartId`, `produtoId`, `itemId` inexistente **ou malformado** (UUID inválido), ou `codigoCupom` que não existe |
+| `404`  | `NotFound`             | `cartId`/`itemId` inexistente **ou malformado** (UUID inválido); `produtoId` inexistente **ou malformado** (não é inteiro positivo); `codigoCupom` que não existe |
 | `409`  | `Conflict`             | Qualquer mutação (`POST`/`PUT`/`DELETE`) num carrinho com `status: "FINALIZADO"` |
 | `422`  | `UnprocessableEntity`  | Quantidade solicitada (já somada, no caso de adição) excede `quantidadeEstoque`   |
 | `500`  | `InternalServerError`  | Erro inesperado não mapeado                                                       |
 
-`cartId`/`itemId`/`produtoId` são validados como UUID antes de qualquer consulta ao banco — um valor malformado retorna `404` (`"cartId inválido."`, etc.) em vez de estourar erro cru do Postgres.
+`cartId`/`itemId` (UUID) e `produtoId` (inteiro) são validados por formato antes de qualquer consulta ao banco — um valor malformado retorna `404` (`"cartId inválido."`, `"produtoId inválido."`) em vez de estourar erro cru do Postgres.
 
 ---
 
@@ -171,10 +173,10 @@ Lista todos os produtos cadastrados.
 ```json
 [
   {
-    "id": "06e2c62c-8ca7-408e-9783-41faeaf52dcd",
-    "descricaoProduto": "Bone Aba Reta",
-    "quantidadeEstoque": 60,
-    "precoLiquido": "39.9"
+    "id": 1,
+    "descricaoProduto": "Notebook Dell Inspiron 15",
+    "quantidadeEstoque": 8,
+    "precoLiquido": "3499.9"
   }
 ]
 ```
@@ -190,21 +192,21 @@ Lista todos os produtos cadastrados.
 {
   "id": "fe247a7f-868a-45fc-aced-b4b78d3bb90f",
   "status": "ABERTO",
-  "subtotal": 99.8,
-  "desconto": 9.98,
-  "total": 89.82,
+  "subtotal": 6999.8,
+  "desconto": 699.98,
+  "total": 6299.82,
   "cupom": { "codigoCupom": "10OFF", "percentualDesconto": 10 },
   "itens": [
     {
       "id": "90b8ea84-0cdc-4d18-b2ce-950edc96993b",
       "produto": {
-        "id": "06e2c62c-8ca7-408e-9783-41faeaf52dcd",
-        "descricaoProduto": "Bone Aba Reta",
-        "precoLiquido": 39.9,
-        "quantidadeEstoque": 60
+        "id": 1,
+        "descricaoProduto": "Notebook Dell Inspiron 15",
+        "precoLiquido": 3499.9,
+        "quantidadeEstoque": 8
       },
       "quantidade": 2,
-      "precoItem": 79.8
+      "precoItem": 6999.8
     }
   ]
 }
@@ -220,7 +222,7 @@ Cria um carrinho novo já com o primeiro item.
 
 **Body**
 ```json
-{ "produtoId": "06e2c62c-8ca7-408e-9783-41faeaf52dcd", "quantidade": 2 }
+{ "produtoId": 1, "quantidade": 2 }
 ```
 
 **Resposta `201`** — carrinho completo (formato acima), com 1 item.
@@ -229,7 +231,7 @@ Cria um carrinho novo já com o primeiro item.
 | Status | Causa                                              | Exemplo de `message`                                  |
 |--------|------------------------------------------------------|-----------------------------------------------------------|
 | `400`  | `quantidade` ausente, não-inteira ou ≤ 0             | `"quantidade deve ser maior que zero."`                    |
-| `404`  | `produtoId` malformado ou inexistente                | `"produtoId não encontrado."`                              |
+| `404`  | `produtoId` não é inteiro positivo, ou inexistente   | `"produtoId inválido."` / `"produtoId não encontrado."`   |
 | `422`  | `quantidade` maior que o estoque do produto          | `"Quantidade solicitada excede o estoque disponível."`    |
 
 ---
@@ -240,7 +242,7 @@ Adiciona um item a um carrinho existente. Se o produto já estiver no carrinho, 
 
 **Body**
 ```json
-{ "produtoId": "06e2c62c-8ca7-408e-9783-41faeaf52dcd", "quantidade": 1 }
+{ "produtoId": 1, "quantidade": 1 }
 ```
 
 **Resposta `200`** — carrinho completo atualizado.
@@ -249,7 +251,7 @@ Adiciona um item a um carrinho existente. Se o produto já estiver no carrinho, 
 | Status | Causa                                                         |
 |--------|-----------------------------------------------------------------|
 | `400`  | `quantidade` ausente, não-inteira ou ≤ 0                        |
-| `404`  | `cartId` malformado/inexistente, ou `produtoId` malformado/inexistente |
+| `404`  | `cartId` malformado/inexistente, ou `produtoId` inválido/inexistente |
 | `409`  | Carrinho com `status: "FINALIZADO"` (`"Carrinho já finalizado."`) |
 | `422`  | Quantidade somada excede o estoque                               |
 

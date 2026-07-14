@@ -1,0 +1,62 @@
+[
+  {
+    "id": 1,
+    "descricaoProduto": "Notebook Dell Inspiron 15",
+    "quantidadeEstoque": 8,
+    "precoLiquido": 3499.90
+  },
+  {
+    "id": 2,
+    "descricaoProduto": "Mouse sem fio Logitech M170",
+    "quantidadeEstoque": 50,
+    "precoLiquido": 59.90
+  },
+  {
+    "id": 3,
+    "descricaoProduto": "Teclado Mecânico Redragon Kumara",
+    "quantidadeEstoque": 25,
+    "precoLiquido": 189.90
+  },
+  {
+    "id": 4,
+    "descricaoProduto": "Monitor LG 24' Full HD",
+    "quantidadeEstoque": 12,
+    "precoLiquido": 749.00
+  },
+  {
+    "id": 5,
+    "descricaoProduto": "Headset Gamer HyperX Cloud Stinger",
+    "quantidadeEstoque": 30,
+    "precoLiquido": 249.90
+  },
+  {
+    "id": 6,
+    "descricaoProduto": "Webcam Logitech C920",
+    "quantidadeEstoque": 15,
+    "precoLiquido": 399.00
+  },
+  {
+    "id": 7,
+    "descricaoProduto": "SSD Kingston 480GB",
+    "quantidadeEstoque": 40,
+    "precoLiquido": 219.90
+  },
+  {
+    "id": 8,
+    "descricaoProduto": "Cadeira Gamer ThunderX3",
+    "quantidadeEstoque": 5,
+    "precoLiquido": 1099.00
+  },
+  {
+    "id": 9,
+    "descricaoProduto": "Carregador USB-C 65W",
+    "quantidadeEstoque": 60,
+    "precoLiquido": 89.90
+  },
+  {
+    "id": 10,
+    "descricaoProduto": "Hub USB 4 Portas 3.0",
+    "quantidadeEstoque": 35,
+    "precoLiquido": 49.90
+  }
+]

@@ -14,7 +14,7 @@ interface CartState {
   carregando: boolean;
   erro: string | null;
 
-  addItemToCart: (produtoId: string, quantidade: number) => Promise<void>;
+  addItemToCart: (produtoId: number, quantidade: number) => Promise<void>;
   updateItemQuantity: (itemId: string, quantidade: number) => Promise<void>;
   removeItemFromCart: (itemId: string) => Promise<void>;
   applyCoupon: (codigoCupom: string) => Promise<void>;

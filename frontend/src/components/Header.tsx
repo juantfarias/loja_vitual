@@ -1,4 +1,4 @@
-import { RiShoppingBag3Line } from "react-icons/ri";
+import { RiCpuLine, RiShoppingBag3Line } from "react-icons/ri";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -13,11 +13,11 @@ export function Header({ quantidadeItens, onAbrirCarrinho }: HeaderProps) {
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <div className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            <RiShoppingBag3Line className="h-5 w-5" />
+            <RiCpuLine className="h-5 w-5" />
           </span>
           <div className="leading-none">
             <p className="font-display text-lg font-medium tracking-tight text-foreground">
-              Atelier
+              Nexus
             </p>
             <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
               Loja de teste

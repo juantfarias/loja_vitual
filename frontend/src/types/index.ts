@@ -1,12 +1,12 @@
 export interface Produto {
-  id: string;
+  id: number;
   descricaoProduto: string;
   quantidadeEstoque: number;
   precoLiquido: number;
 }
 
 export interface Cupom {
-  id: string;
+  id: number;
   codigoCupom: string;
   percentualDesconto: number;
 }
@@ -14,7 +14,7 @@ export interface Cupom {
 export interface ItemCarrinho {
   id: string;
   carrinhoId: string;
-  produtoId: string;
+  produtoId: number;
   quantidade: number;
   precoItem: number;
 }
@@ -29,7 +29,7 @@ export interface Carrinho {
 }
 
 export interface ProdutoResumoCarrinho {
-  id: string;
+  id: number;
   descricaoProduto: string;
   precoLiquido: number;
   quantidadeEstoque: number;

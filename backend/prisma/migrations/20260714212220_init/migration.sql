@@ -1,6 +1,6 @@
 -- CreateTable
 CREATE TABLE "produtos" (
-    "id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
     "descricaoProduto" TEXT NOT NULL,
     "quantidadeEstoque" INTEGER NOT NULL,
     "precoLiquido" DECIMAL(10,2) NOT NULL,
@@ -10,7 +10,7 @@ CREATE TABLE "produtos" (
 
 -- CreateTable
 CREATE TABLE "cupons" (
-    "id" UUID NOT NULL,
+    "id" SERIAL NOT NULL,
     "codigoCupom" TEXT NOT NULL,
     "percentualDesconto" DECIMAL(5,2) NOT NULL,
 
@@ -24,7 +24,7 @@ CREATE TABLE "carrinhos" (
     "subtotal" DECIMAL(10,2) NOT NULL,
     "desconto" DECIMAL(10,2) NOT NULL,
     "total" DECIMAL(10,2) NOT NULL,
-    "cupomId" UUID,
+    "cupomId" INTEGER,
 
     CONSTRAINT "carrinhos_pkey" PRIMARY KEY ("id")
 );
@@ -33,7 +33,7 @@ CREATE TABLE "carrinhos" (
 CREATE TABLE "itens_carrinho" (
     "id" UUID NOT NULL,
     "carrinhoId" UUID NOT NULL,
-    "produtoId" UUID NOT NULL,
+    "produtoId" INTEGER NOT NULL,
     "quantidade" INTEGER NOT NULL,
     "precoItem" DECIMAL(10,2) NOT NULL,
 

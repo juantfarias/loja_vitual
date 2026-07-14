@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "../infrastructure/prisma/client";
 import { AppError } from "../shared/AppError";
+import { assertProdutoIdOuFalhar } from "../shared/produtoId";
 import { assertUuidOrNotFound } from "../shared/uuid";
 
 type Tx = Prisma.TransactionClient;
@@ -15,7 +16,7 @@ export interface CarrinhoResponseDTO {
   itens: {
     id: string;
     produto: {
-      id: string;
+      id: number;
       descricaoProduto: string;
       precoLiquido: number;
       quantidadeEstoque: number;
@@ -117,11 +118,11 @@ async function montarResposta(cartId: string, tx: Tx): Promise<CarrinhoResponseD
 
 export const CarrinhoService = {
   async criarComItem(
-    produtoId: string,
+    produtoIdBruto: unknown,
     quantidade: unknown
   ): Promise<CarrinhoResponseDTO> {
     const qtd = validarQuantidade(quantidade);
-    assertUuidOrNotFound(produtoId, "produtoId");
+    const produtoId = assertProdutoIdOuFalhar(produtoIdBruto);
 
     return prisma.$transaction(async (tx) => {
       const produto = await tx.produto.findUnique({ where: { id: produtoId } });
@@ -152,12 +153,12 @@ export const CarrinhoService = {
 
   async adicionarItem(
     cartId: string,
-    produtoId: string,
+    produtoIdBruto: unknown,
     quantidade: unknown
   ): Promise<CarrinhoResponseDTO> {
     const qtd = validarQuantidade(quantidade);
     assertUuidOrNotFound(cartId, "cartId");
-    assertUuidOrNotFound(produtoId, "produtoId");
+    const produtoId = assertProdutoIdOuFalhar(produtoIdBruto);
 
     return prisma.$transaction(async (tx) => {
       await buscarCarrinhoAtivoOuFalhar(cartId, tx);

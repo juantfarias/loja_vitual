@@ -39,12 +39,12 @@ function App() {
 
       <main className="mx-auto max-w-6xl px-6 py-10">
         <div className="mb-8 max-w-lg">
-          <p className="text-xs uppercase tracking-[0.25em] text-primary">Novidades</p>
+          <p className="text-xs uppercase tracking-[0.25em] text-primary">Catálogo</p>
           <h1 className="mt-2 font-display text-3xl font-medium tracking-tight text-foreground sm:text-4xl">
-            Peças essenciais para o dia a dia
+            Equipamentos para o seu setup
           </h1>
           <p className="mt-3 text-sm text-muted-foreground">
-            Selecionamos {produtos.length || "algumas"} peças da coleção atual. Adicione ao
+            Selecionamos {produtos.length || "alguns"} itens de tecnologia. Adicione ao
             carrinho e finalize quando quiser.
           </p>
         </div>
