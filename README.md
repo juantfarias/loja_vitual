@@ -1,0 +1,367 @@
+# Loja Virtual — Carrinho de Compras
+
+Aplicação full-stack de e-commerce: catálogo de produtos com imagens, carrinho de compras persistido no banco, cupons de desconto e checkout. Toda a matemática (subtotal, desconto, total) e as validações de negócio (estoque, imutabilidade pós-checkout) vivem no back-end — o front-end só reflete o que a API retorna.
+
+## Stack
+
+**Back-end**
+- Node.js + TypeScript (strict mode)
+- Express
+- PostgreSQL 15 (containerizado via Docker Compose)
+- Prisma ORM
+
+**Front-end**
+- React + TypeScript (strict mode) + Vite
+- Zustand (estado do carrinho)
+- Axios
+- Tailwind CSS + shadcn/ui (componentes)
+- Remix Icon (`react-icons/ri`)
+
+## Arquitetura
+
+```
+┌─────────────┐      HTTP/JSON      ┌──────────────┐      Prisma      ┌────────────┐
+│  Front-end  │  ────────────────▶  │   Back-end   │  ─────────────▶  │ PostgreSQL │
+│ React+Vite  │  ◀────────────────  │ Express+TS   │  ◀─────────────  │  (Docker)  │
+│  :5173      │                     │    :3333     │                  │   :5434    │
+└─────────────┘                     └──────────────┘                  └────────────┘
+```
+
+O front-end não tem credenciais de banco; o back-end não renderiza HTML. Comunicação exclusivamente via API REST.
+
+### Back-end — Clean Architecture simplificada
+
+```
+backend/src/
+├── server.ts                    # entrypoint Express: CORS, JSON, rotas, error handler
+├── infrastructure/
+│   ├── routes.ts                # define todos os endpoints e liga ao controller/service
+│   └── prisma/client.ts         # singleton do PrismaClient
+├── controllers/
+│   └── CarrinhoController.ts    # adapta request/response HTTP ↔ CarrinhoService
+├── services/
+│   ├── ProdutoService.ts        # leitura de produtos
+│   └── CarrinhoService.ts       # motor de regras do carrinho (transacional)
+├── middlewares/
+│   └── errorHandler.ts          # captura AppError e erros do Prisma, formata resposta
+└── shared/
+    ├── AppError.ts              # classe de erro padronizada
+    └── uuid.ts                  # validação de UUID nos params (evita erro cru do Postgres)
+```
+
+Fluxo de uma requisição: `routes.ts` → `controller` (extrai params/body, chama o service, repassa erros) → `service` (regras de negócio + Prisma) → resposta JSON. Toda mutação de carrinho roda dentro de `prisma.$transaction`, garantindo atomicidade entre `Carrinho` e `ItemCarrinho`.
+
+### Front-end
+
+```
+frontend/src/
+├── App.tsx                  # layout: header, catálogo, drawer do carrinho
+├── components/
+│   ├── ui/                  # primitivos shadcn (button, card, sheet, input, badge...)
+│   ├── Header.tsx           # topo fixo + ícone do carrinho com badge
+│   ├── ProductGrid.tsx      # grid do catálogo (loading/erro/dados)
+│   ├── ProductCard.tsx      # card de produto (imagem, preço, estoque, adicionar)
+│   ├── CartSheet.tsx        # drawer lateral do carrinho (cupom, totais, checkout)
+│   └── CartItemRow.tsx      # linha de item dentro do carrinho
+├── store/
+│   └── useCartStore.ts      # estado global do carrinho (Zustand) + chamadas à API
+├── services/
+│   └── api.ts               # instância Axios (baseURL, interceptor de erro)
+├── lib/
+│   ├── formatarMoeda.ts     # Intl.NumberFormat pt-BR/BRL
+│   ├── produtoImagem.ts     # mapa produto → imagem (Unsplash)
+│   └── utils.ts             # helper cn() (classnames)
+└── types/
+    └── index.ts             # interfaces TypeScript espelhando os contratos da API
+```
+
+O carrinho é 100% controlado pelo back-end: o Zustand nunca calcula preço, desconto ou total — ele só guarda o que a API devolve após cada ação (`addItemToCart`, `updateItemQuantity`, `removeItemFromCart`, `applyCoupon`, `removeCoupon`, `checkout`).
+
+## Modelo de dados
+
+| Modelo         | Campos                                                                                   |
+|----------------|-------------------------------------------------------------------------------------------|
+| `Produto`      | `id` (UUID), `descricaoProduto`, `quantidadeEstoque` (Int), `precoLiquido` (Decimal)      |
+| `Cupom`        | `id` (UUID), `codigoCupom` (único), `percentualDesconto` (Decimal)                        |
+| `Carrinho`     | `id` (UUID), `status` (`ABERTO`/`FINALIZADO`), `subtotal`, `desconto`, `total` (Decimal), `cupomId` (opcional) |
+| `ItemCarrinho` | `id` (UUID), `carrinhoId`, `produtoId`, `quantidade` (Int), `precoItem` (Decimal)          |
+
+Valores monetários são `Decimal` no banco e nos cálculos (nunca `float`, para evitar erro de arredondamento); a API converte para `number` só na resposta JSON.
+
+## Como rodar o projeto
+
+Pré-requisitos: Node.js 18+, Docker e Docker Compose.
+
+### 1. Banco de dados
+
+```bash
+docker-compose up -d
+```
+
+Sobe um Postgres 15 na porta `5434` do host (mapeada para a `5432` do container), usuário/senha `docker`/`docker`, banco `cart_db`.
+
+### 2. Back-end
+
+```bash
+cd backend
+npm install
+cp .env.example .env      # já vem preenchido para rodar com o docker-compose acima
+npm run migrate           # cria as tabelas
+npm run seed               # popula 10 produtos e os cupons 10OFF / 15OFF
+npm run dev                 # http://localhost:3333
+```
+
+### 3. Front-end
+
+```bash
+cd frontend
+npm install
+npm run dev                 # http://localhost:5173
+```
+
+Abra `http://localhost:5173` — o catálogo carrega os produtos reais do banco.
+
+### Variáveis de ambiente (`backend/.env`)
+
+| Variável            | Descrição                                      | Exemplo                                                              |
+|---------------------|-------------------------------------------------|------------------------------------------------------------------------|
+| `CART_DATABASE_URL` | String de conexão do Postgres usada pelo Prisma | `postgresql://docker:docker@localhost:5434/cart_db?schema=public`     |
+| `PORT`              | Porta do servidor Express                        | `3333`                                                                 |
+
+## API
+
+Base URL: `http://localhost:3333`.
+
+### Formato de erro
+
+Toda resposta de erro (qualquer rota) segue o mesmo formato, produzido pelo `errorHandler` global:
+
+```json
+{ "error": "TipoDoErro", "message": "Descrição legível." }
+```
+
+| Status | `error`               | Quando acontece                                                                 |
+|--------|------------------------|-----------------------------------------------------------------------------------|
+| `400`  | `BadRequest`           | `quantidade` ausente/não-inteira/≤ 0, ou `codigoCupom` vazio                     |
+| `404`  | `NotFound`             | `cartId`, `produtoId`, `itemId` inexistente **ou malformado** (UUID inválido), ou `codigoCupom` que não existe |
+| `409`  | `Conflict`             | Qualquer mutação (`POST`/`PUT`/`DELETE`) num carrinho com `status: "FINALIZADO"` |
+| `422`  | `UnprocessableEntity`  | Quantidade solicitada (já somada, no caso de adição) excede `quantidadeEstoque`   |
+| `500`  | `InternalServerError`  | Erro inesperado não mapeado                                                       |
+
+`cartId`/`itemId`/`produtoId` são validados como UUID antes de qualquer consulta ao banco — um valor malformado retorna `404` (`"cartId inválido."`, etc.) em vez de estourar erro cru do Postgres.
+
+---
+
+### `GET /api/health`
+
+Checagem de status do servidor.
+
+**Resposta `200`**
+```json
+{ "status": "ok" }
+```
+
+---
+
+### `GET /api/produtos`
+
+Lista todos os produtos cadastrados.
+
+**Resposta `200`**
+```json
+[
+  {
+    "id": "06e2c62c-8ca7-408e-9783-41faeaf52dcd",
+    "descricaoProduto": "Bone Aba Reta",
+    "quantidadeEstoque": 60,
+    "precoLiquido": "39.9"
+  }
+]
+```
+> Nesta rota o Prisma serializa `precoLiquido` (tipo `Decimal`) como **string** — diferente das rotas de carrinho abaixo, que convertem para `number` na resposta.
+
+---
+
+### Carrinho — formato de resposta comum
+
+**Toda** rota de mutação de carrinho (todas as listadas a seguir) devolve o **carrinho completo** neste formato, para o front-end substituir o estado local por inteiro:
+
+```json
+{
+  "id": "fe247a7f-868a-45fc-aced-b4b78d3bb90f",
+  "status": "ABERTO",
+  "subtotal": 99.8,
+  "desconto": 9.98,
+  "total": 89.82,
+  "cupom": { "codigoCupom": "10OFF", "percentualDesconto": 10 },
+  "itens": [
+    {
+      "id": "90b8ea84-0cdc-4d18-b2ce-950edc96993b",
+      "produto": {
+        "id": "06e2c62c-8ca7-408e-9783-41faeaf52dcd",
+        "descricaoProduto": "Bone Aba Reta",
+        "precoLiquido": 39.9,
+        "quantidadeEstoque": 60
+      },
+      "quantidade": 2,
+      "precoItem": 79.8
+    }
+  ]
+}
+```
+
+`status` é sempre `"ABERTO"` ou `"FINALIZADO"`. `cupom` é `null` quando nenhum cupom está aplicado.
+
+---
+
+### `POST /api/carrinhos`
+
+Cria um carrinho novo já com o primeiro item.
+
+**Body**
+```json
+{ "produtoId": "06e2c62c-8ca7-408e-9783-41faeaf52dcd", "quantidade": 2 }
+```
+
+**Resposta `201`** — carrinho completo (formato acima), com 1 item.
+
+**Erros**
+| Status | Causa                                              | Exemplo de `message`                                  |
+|--------|------------------------------------------------------|-----------------------------------------------------------|
+| `400`  | `quantidade` ausente, não-inteira ou ≤ 0             | `"quantidade deve ser maior que zero."`                    |
+| `404`  | `produtoId` malformado ou inexistente                | `"produtoId não encontrado."`                              |
+| `422`  | `quantidade` maior que o estoque do produto          | `"Quantidade solicitada excede o estoque disponível."`    |
+
+---
+
+### `POST /api/carrinhos/:cartId/itens`
+
+Adiciona um item a um carrinho existente. Se o produto já estiver no carrinho, a quantidade enviada é **somada** à atual (a validação de estoque usa o total já somado).
+
+**Body**
+```json
+{ "produtoId": "06e2c62c-8ca7-408e-9783-41faeaf52dcd", "quantidade": 1 }
+```
+
+**Resposta `200`** — carrinho completo atualizado.
+
+**Erros**
+| Status | Causa                                                         |
+|--------|-----------------------------------------------------------------|
+| `400`  | `quantidade` ausente, não-inteira ou ≤ 0                        |
+| `404`  | `cartId` malformado/inexistente, ou `produtoId` malformado/inexistente |
+| `409`  | Carrinho com `status: "FINALIZADO"` (`"Carrinho já finalizado."`) |
+| `422`  | Quantidade somada excede o estoque                               |
+
+---
+
+### `PUT /api/carrinhos/:cartId/itens/:itemId`
+
+Substitui a quantidade de um item já existente no carrinho (não soma — define o valor exato).
+
+**Body**
+```json
+{ "quantidade": 5 }
+```
+
+**Resposta `200`** — carrinho completo atualizado.
+
+**Erros**
+| Status | Causa                                                        |
+|--------|------------------------------------------------------------------|
+| `400`  | `quantidade` ausente, não-inteira ou ≤ 0                         |
+| `404`  | `cartId`/`itemId` malformado/inexistente (`"itemId não encontrado."`) |
+| `409`  | Carrinho já finalizado                                            |
+| `422`  | Nova quantidade excede o estoque do produto                       |
+
+---
+
+### `DELETE /api/carrinhos/:cartId/itens/:itemId`
+
+Remove um item do carrinho. Se for o último item, `subtotal`, `desconto` e `total` voltam a `0` (o cupom, se houver, permanece vinculado).
+
+**Sem body.**
+
+**Resposta `200`** — carrinho completo atualizado.
+
+**Erros**
+| Status | Causa                                                     |
+|--------|--------------------------------------------------------------|
+| `404`  | `cartId`/`itemId` malformado/inexistente (`"itemId não encontrado."`) |
+| `409`  | Carrinho já finalizado                                        |
+
+---
+
+### `POST /api/carrinhos/:cartId/cupom`
+
+Aplica um cupom ao carrinho. Se já houver um cupom vinculado, ele é substituído pelo novo.
+
+**Body**
+```json
+{ "codigoCupom": "10OFF" }
+```
+
+**Resposta `200`** — carrinho completo, `desconto`/`total` recalculados.
+
+**Erros**
+| Status | Causa                                                    |
+|--------|---------------------------------------------------------|
+| `400`  | `codigoCupom` ausente/vazio                              |
+| `404`  | `cartId` malformado/inexistente, ou cupom inexistente (`"Cupom com codigoCupom inválido."`) |
+| `409`  | Carrinho já finalizado                                    |
+
+---
+
+### `DELETE /api/carrinhos/:cartId/cupom`
+
+Remove o cupom aplicado (`desconto` volta a `0`, `total` volta a igualar o `subtotal`).
+
+**Sem body.**
+
+**Resposta `200`** — carrinho completo atualizado.
+
+**Erros**
+| Status | Causa                            |
+|--------|-----------------------------------|
+| `404`  | `cartId` malformado/inexistente  |
+| `409`  | Carrinho já finalizado             |
+
+---
+
+### `POST /api/carrinhos/:cartId/checkout`
+
+Finaliza o carrinho: `status` vira `"FINALIZADO"`, travando qualquer mutação futura.
+
+**Sem body.**
+
+**Resposta `200`** — carrinho completo, com `"status": "FINALIZADO"`.
+
+**Erros**
+| Status | Causa                                                    |
+|--------|-----------------------------------------------------------|
+| `404`  | `cartId` malformado/inexistente                           |
+| `409`  | Carrinho **já** finalizado (checkout não é idempotente)  |
+
+---
+
+### Resumo das rotas
+
+| Método   | Rota                                    | Body                              |
+|----------|-------------------------------------------|-------------------------------------|
+| `GET`    | `/api/health`                             | —                                    |
+| `GET`    | `/api/produtos`                           | —                                    |
+| `POST`   | `/api/carrinhos`                          | `{ "produtoId", "quantidade" }`     |
+| `POST`   | `/api/carrinhos/:cartId/itens`            | `{ "produtoId", "quantidade" }`     |
+| `PUT`    | `/api/carrinhos/:cartId/itens/:itemId`    | `{ "quantidade" }`                  |
+| `DELETE` | `/api/carrinhos/:cartId/itens/:itemId`    | —                                    |
+| `POST`   | `/api/carrinhos/:cartId/cupom`            | `{ "codigoCupom" }`                 |
+| `DELETE` | `/api/carrinhos/:cartId/cupom`            | —                                    |
+| `POST`   | `/api/carrinhos/:cartId/checkout`         | —                                    |
+
+### Regras de negócio
+
+- **Preço do item:** `precoItem = precoLiquido × quantidade`.
+- **Totais:** `subtotal = Σ precoItem`; `desconto = subtotal × (percentualDesconto / 100)`; `total = subtotal − desconto`.
+- **Adicionar vs. atualizar:** `POST` soma a quantidade enviada à já existente no carrinho; `PUT` substitui.
+- **Estoque:** validado em tempo real a cada adição/atualização, contra `quantidadeEstoque` do produto.
+- **Carrinho finalizado:** nenhuma rota de mutação (`POST`/`PUT`/`DELETE`) pode alterar um carrinho `FINALIZADO`.
