@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("CART_DATABASE_URL")
+}
+
+model Produto {
+  id                String   @id @default(uuid()) @db.Uuid
+  descricaoProduto  String
+  quantidadeEstoque Int
+  precoLiquido      Decimal  @db.Decimal(10, 2)
+
+  itensCarrinho ItemCarrinho[]
+
+  @@map("produtos")
+}
+
+model Cupom {
+  id                 String  @id @default(uuid()) @db.Uuid
+  codigoCupom        String  @unique
+  percentualDesconto Decimal @db.Decimal(5, 2)
+
+  carrinhos Carrinho[]
+
+  @@map("cupons")
+}
+
+model Carrinho {
+  id       String  @id @default(uuid()) @db.Uuid
+  status   String
+  subtotal Decimal @db.Decimal(10, 2)
+  desconto Decimal @db.Decimal(10, 2)
+  total    Decimal @db.Decimal(10, 2)
+  cupomId  String? @db.Uuid
+
+  cupom Cupom?         @relation(fields: [cupomId], references: [id])
+  itens ItemCarrinho[]
+
+  @@map("carrinhos")
+}
+
+model ItemCarrinho {
+  id         String  @id @default(uuid()) @db.Uuid
+  carrinhoId String  @db.Uuid
+  produtoId  String  @db.Uuid
+  quantidade Int
+  precoItem  Decimal @db.Decimal(10, 2)
+
+  carrinho Carrinho @relation(fields: [carrinhoId], references: [id])
+  produto  Produto  @relation(fields: [produtoId], references: [id])
+
+  @@map("itens_carrinho")
+}

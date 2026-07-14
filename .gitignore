@@ -1,0 +1,17 @@
+# Ignora tudo na raiz por padrão
+/*
+
+# Mantém apenas o essencial do projeto
+!/backend
+!/frontend
+!/docker-compose.yml
+!/.gitignore
+!/README.md
+
+# Ignora dependências e artefatos de build dentro das pastas mantidas
+**/node_modules/
+**/dist/
+**/build/
+**/.env
+**/*.log
+**/.DS_Store
