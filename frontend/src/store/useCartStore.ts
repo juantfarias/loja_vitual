@@ -3,6 +3,8 @@ import { create } from "zustand";
 import { api } from "../services/api";
 import { CarrinhoResponse, CupomAplicado, ItemCarrinhoDetalhado } from "../types";
 
+const CART_ID_STORAGE_KEY = "cartId";
+
 interface CartState {
   cartId: string | null;
   status: "ABERTO" | "FINALIZADO" | null;
@@ -14,13 +16,14 @@ interface CartState {
   carregando: boolean;
   erro: string | null;
 
+  carregarCarrinhoSalvo: () => Promise<void>;
   addItemToCart: (produtoId: number, quantidade: number) => Promise<void>;
   updateItemQuantity: (itemId: string, quantidade: number) => Promise<void>;
   removeItemFromCart: (itemId: string) => Promise<void>;
   applyCoupon: (codigoCupom: string) => Promise<void>;
   removeCoupon: () => Promise<void>;
   checkout: () => Promise<void>;
-  limparCarrinho: () => void;
+  limparCarrinho: () => Promise<void>;
 }
 
 const estadoInicial = {
@@ -48,6 +51,7 @@ function extrairMensagemDeErro(error: unknown): string {
 
 export const useCartStore = create<CartState>((set, get) => {
   function aplicarResposta(data: CarrinhoResponse) {
+    localStorage.setItem(CART_ID_STORAGE_KEY, data.id);
     set({
       cartId: data.id,
       status: data.status,
@@ -63,6 +67,21 @@ export const useCartStore = create<CartState>((set, get) => {
 
   return {
     ...estadoInicial,
+
+    carregarCarrinhoSalvo: async () => {
+      const cartIdSalvo = localStorage.getItem(CART_ID_STORAGE_KEY);
+      if (!cartIdSalvo) return;
+
+      try {
+        const { data } = await api.get<CarrinhoResponse>(
+          `/api/carrinhos/${cartIdSalvo}`
+        );
+        aplicarResposta(data);
+      } catch {
+        // carrinho não existe mais (excluído, ou de outro ambiente) — limpa silenciosamente
+        localStorage.removeItem(CART_ID_STORAGE_KEY);
+      }
+    },
 
     addItemToCart: async (produtoId, quantidade) => {
       set({ carregando: true, erro: null });
@@ -170,6 +189,20 @@ export const useCartStore = create<CartState>((set, get) => {
       }
     },
 
-    limparCarrinho: () => set({ ...estadoInicial }),
+    limparCarrinho: async () => {
+      const { cartId, status } = get();
+
+      if (cartId && status === "ABERTO") {
+        try {
+          await api.delete(`/api/carrinhos/${cartId}`);
+        } catch (error) {
+          // carrinho já pode ter sido removido por outra aba/sessão — segue o reset local mesmo assim
+          console.error("Erro ao excluir carrinho:", error);
+        }
+      }
+
+      localStorage.removeItem(CART_ID_STORAGE_KEY);
+      set({ ...estadoInicial });
+    },
   };
 });

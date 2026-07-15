@@ -246,6 +246,37 @@ Cria um carrinho novo já com o primeiro item.
 
 ---
 
+### `GET /api/carrinhos/:cartId`
+
+Recupera o estado atual de um carrinho (usado pelo front para restaurar o carrinho salvo no `localStorage` após um refresh de página). Funciona tanto para carrinhos `ABERTO` quanto `FINALIZADO` — é leitura, não sofre a trava de imutabilidade.
+
+**Sem body.**
+
+**Resposta `200`** — carrinho completo (formato acima).
+
+**Erros**
+| Status | Causa                              |
+|--------|--------------------------------------|
+| `404`  | `cartId` malformado ou inexistente  |
+
+---
+
+### `DELETE /api/carrinhos/:cartId`
+
+Exclui um carrinho por completo (usado pelo botão "esvaziar"/"Novo carrinho" no front, para não deixar carrinhos abandonados acumulando no banco).
+
+**Sem body.**
+
+**Resposta `200`** — o carrinho como estava momentos antes de ser excluído.
+
+**Erros**
+| Status | Causa                                                        |
+|--------|-----------------------------------------------------------------|
+| `404`  | `cartId` malformado ou inexistente                               |
+| `409`  | Carrinho com `status: "FINALIZADO"` (`"Não é possível excluir um carrinho finalizado."`) — pedidos concluídos são preservados, nunca apagados |
+
+---
+
 ### `POST /api/carrinhos/:cartId/itens`
 
 Adiciona um item a um carrinho existente. Se o produto já estiver no carrinho, a quantidade enviada é **somada** à atual (a validação de estoque usa o total já somado).
@@ -363,6 +394,8 @@ Finaliza o carrinho: `status` vira `"FINALIZADO"`, travando qualquer mutação f
 | `GET`    | `/api/health`                             | —                                    |
 | `GET`    | `/api/produtos`                           | —                                    |
 | `POST`   | `/api/carrinhos`                          | `{ "produtoId", "quantidade" }`     |
+| `GET`    | `/api/carrinhos/:cartId`                  | —                                    |
+| `DELETE` | `/api/carrinhos/:cartId`                  | —                                    |
 | `POST`   | `/api/carrinhos/:cartId/itens`            | `{ "produtoId", "quantidade" }`     |
 | `PUT`    | `/api/carrinhos/:cartId/itens/:itemId`    | `{ "quantidade" }`                  |
 | `DELETE` | `/api/carrinhos/:cartId/itens/:itemId`    | —                                    |
@@ -376,4 +409,5 @@ Finaliza o carrinho: `status` vira `"FINALIZADO"`, travando qualquer mutação f
 - **Totais:** `subtotal = Σ precoItem`; `desconto = subtotal × (percentualDesconto / 100)`; `total = subtotal − desconto`.
 - **Adicionar vs. atualizar:** `POST` soma a quantidade enviada à já existente no carrinho; `PUT` substitui.
 - **Estoque:** validado em tempo real a cada adição/atualização, contra `quantidadeEstoque` do produto.
-- **Carrinho finalizado:** nenhuma rota de mutação (`POST`/`PUT`/`DELETE`) pode alterar um carrinho `FINALIZADO`.
+- **Carrinho finalizado:** nenhuma rota de mutação (`POST`/`PUT`/`DELETE` de itens/cupom) pode alterar um carrinho `FINALIZADO`.
+- **Persistência client-side:** o front salva o `cartId` no `localStorage` e o restaura via `GET /api/carrinhos/:cartId` ao carregar a página — o carrinho sobrevive a um refresh. Carrinhos `FINALIZADO` nunca podem ser excluídos (`DELETE` retorna 409); carrinhos `ABERTO` podem, e é isso que o botão "esvaziar"/"Novo carrinho" faz no front, para não acumular carrinhos abandonados no banco.

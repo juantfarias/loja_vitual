@@ -21,6 +21,8 @@ routes.get(
 );
 
 routes.post("/api/carrinhos", CarrinhoController.criar);
+routes.get("/api/carrinhos/:cartId", CarrinhoController.buscarPorId);
+routes.delete("/api/carrinhos/:cartId", CarrinhoController.excluir);
 routes.post("/api/carrinhos/:cartId/itens", CarrinhoController.adicionarItem);
 routes.put("/api/carrinhos/:cartId/itens/:itemId", CarrinhoController.atualizarItem);
 routes.delete("/api/carrinhos/:cartId/itens/:itemId", CarrinhoController.removerItem);

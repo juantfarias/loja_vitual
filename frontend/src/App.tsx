@@ -14,7 +14,8 @@ function App() {
   const [erroProdutos, setErroProdutos] = useState<string | null>(null);
   const [carrinhoAberto, setCarrinhoAberto] = useState(false);
 
-  const { itens, carregando, erro, addItemToCart } = useCartStore();
+  const { itens, carregando, erro, addItemToCart, carregarCarrinhoSalvo } =
+    useCartStore();
 
   useEffect(() => {
     api
@@ -22,7 +23,9 @@ function App() {
       .then((response) => setProdutos(response.data))
       .catch(() => setErroProdutos("Não foi possível carregar os produtos."))
       .finally(() => setCarregandoProdutos(false));
-  }, []);
+
+    carregarCarrinhoSalvo();
+  }, [carregarCarrinhoSalvo]);
 
   useEffect(() => {
     if (erro) toast.error(erro);

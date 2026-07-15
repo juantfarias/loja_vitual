@@ -2,6 +2,26 @@ import { NextFunction, Request, Response } from "express";
 import { CarrinhoService } from "../services/CarrinhoService";
 
 export const CarrinhoController = {
+  async buscarPorId(request: Request, response: Response, next: NextFunction) {
+    try {
+      const { cartId } = request.params;
+      const carrinho = await CarrinhoService.buscarPorId(cartId);
+      response.status(200).json(carrinho);
+    } catch (error) {
+      next(error);
+    }
+  },
+
+  async excluir(request: Request, response: Response, next: NextFunction) {
+    try {
+      const { cartId } = request.params;
+      const carrinho = await CarrinhoService.excluir(cartId);
+      response.status(200).json(carrinho);
+    } catch (error) {
+      next(error);
+    }
+  },
+
   async criar(request: Request, response: Response, next: NextFunction) {
     try {
       const { produtoId, quantidade } = request.body;

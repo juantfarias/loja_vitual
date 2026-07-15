@@ -57,7 +57,19 @@ export function CartSheet({ open, onOpenChange }: CartSheetProps) {
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="flex w-full flex-col sm:max-w-md">
         <SheetHeader>
-          <SheetTitle>Seu carrinho</SheetTitle>
+          <div className="flex items-center justify-between pr-6">
+            <SheetTitle>Seu carrinho</SheetTitle>
+            {!carrinhoVazio && !finalizado && (
+              <button
+                type="button"
+                onClick={limparCarrinho}
+                disabled={carregando}
+                className="text-xs text-muted-foreground underline underline-offset-2 disabled:opacity-40"
+              >
+                esvaziar
+              </button>
+            )}
+          </div>
         </SheetHeader>
 
         {carrinhoVazio && !finalizado && (

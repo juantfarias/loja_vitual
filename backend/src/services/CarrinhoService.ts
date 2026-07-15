@@ -117,6 +117,39 @@ async function montarResposta(cartId: string, tx: Tx): Promise<CarrinhoResponseD
 }
 
 export const CarrinhoService = {
+  async buscarPorId(cartId: string): Promise<CarrinhoResponseDTO> {
+    assertUuidOrNotFound(cartId, "cartId");
+
+    return prisma.$transaction(async (tx) => {
+      return montarResposta(cartId, tx);
+    });
+  },
+
+  async excluir(cartId: string): Promise<CarrinhoResponseDTO> {
+    assertUuidOrNotFound(cartId, "cartId");
+
+    return prisma.$transaction(async (tx) => {
+      const carrinho = await tx.carrinho.findUnique({ where: { id: cartId } });
+      if (!carrinho) {
+        throw new AppError("Carrinho não encontrado.", 404, "NotFound");
+      }
+      if (carrinho.status === "FINALIZADO") {
+        throw new AppError(
+          "Não é possível excluir um carrinho finalizado.",
+          409,
+          "Conflict"
+        );
+      }
+
+      const resposta = await montarResposta(cartId, tx);
+
+      await tx.itemCarrinho.deleteMany({ where: { carrinhoId: cartId } });
+      await tx.carrinho.delete({ where: { id: cartId } });
+
+      return resposta;
+    });
+  },
+
   async criarComItem(
     produtoIdBruto: unknown,
     quantidade: unknown
