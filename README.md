@@ -144,6 +144,8 @@ Suite de integração em cascata (`backend/tests/`), rodando com Vitest + Supert
 
 Base URL: `http://localhost:3333`.
 
+> **Documentação interativa (Swagger):** com o back-end rodando, abra `http://localhost:3333/api/docs` — schemas, exemplos e "try it out" pra cada rota, gerados a partir de `backend/openapi.json`. A referência abaixo cobre a mesma informação em prosa, incluindo o raciocínio por trás de cada regra.
+
 ### Formato de erro
 
 Toda resposta de erro (qualquer rota) segue o mesmo formato, produzido pelo `errorHandler` global:
@@ -411,3 +413,18 @@ Finaliza o carrinho: `status` vira `"FINALIZADO"`, travando qualquer mutação f
 - **Estoque:** validado em tempo real a cada adição/atualização, contra `quantidadeEstoque` do produto.
 - **Carrinho finalizado:** nenhuma rota de mutação (`POST`/`PUT`/`DELETE` de itens/cupom) pode alterar um carrinho `FINALIZADO`.
 - **Persistência client-side:** o front salva o `cartId` no `localStorage` e o restaura via `GET /api/carrinhos/:cartId` ao carregar a página — o carrinho sobrevive a um refresh. Carrinhos `FINALIZADO` nunca podem ser excluídos (`DELETE` retorna 409); carrinhos `ABERTO` podem, e é isso que o botão "esvaziar"/"Novo carrinho" faz no front, para não acumular carrinhos abandonados no banco.
+
+## Versionamento
+
+Versionamento simples: commits direto na `main`, sem branch por feature. Em troca, todo commit segue convenção clara — `tipo: descrição objetiva do que mudou` (`feat`, `fix`, `refactor`, etc.), sempre em português, sempre descrevendo a mudança de forma assertiva. Exemplos reais do histórico:
+
+```
+feat: implementando regras de negocio
+refactor: reformulando frontend
+fix: ajustando DTO carrinho
+feat: consumindo .json para alimentar banco
+fix: ajustando notificação de cupom invalido
+feat: implementando testes
+feat: consumindo dados persistidos do carrinho
+fix: ajustando problemas de compatibilidade
+```
