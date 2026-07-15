@@ -94,15 +94,25 @@ Valores monetários são `Decimal` no banco e nos cálculos (nunca `float`, para
 
 Pré-requisitos: Node.js 18+, Docker e Docker Compose.
 
-### 1. Banco de dados
+### Opção rápida — tudo no Docker
 
 ```bash
-docker-compose up -d
+docker-compose up -d --build
 ```
 
-Sobe um Postgres 15 na porta `5434` do host (mapeada para a `5432` do container), usuário/senha `docker`/`docker`, banco `cart_db`.
+Sobe banco + migrations + seed automático (só na primeira vez, se o banco estiver vazio) + API + front, tudo de uma vez — `http://localhost:5173` (front) e `http://localhost:3333` (API) prontos em poucos minutos. **Sem hot-reload**: os containers rodam a imagem buildada; pra ver uma mudança de código refletida, roda `docker-compose up -d --build` de novo. Pra iteração rápida com hot-reload, use o fluxo manual abaixo.
 
-### 2. Back-end
+### Fluxo manual (com hot-reload)
+
+#### 1. Banco de dados
+
+```bash
+docker-compose up -d postgres
+```
+
+Sobe só o Postgres 15 na porta `5434` do host (mapeada para a `5432` do container), usuário/senha `docker`/`docker`, banco `cart_db`. (O `docker-compose.yml` também tem serviços `backend`/`frontend` — usados pela opção rápida acima; aqui especificamos `postgres` pra não subir os três.)
+
+#### 2. Back-end
 
 ```bash
 cd backend
@@ -113,7 +123,7 @@ npm run seed               # popula produtos e cupons a partir de prisma/seed-da
 npm run dev                 # http://localhost:3333
 ```
 
-### 3. Front-end
+#### 3. Front-end
 
 ```bash
 cd frontend
@@ -123,7 +133,7 @@ npm run dev                 # http://localhost:5173
 
 Abra `http://localhost:5173` — o catálogo carrega os produtos reais do banco.
 
-### 4. Testes (back-end)
+#### 4. Testes (back-end)
 
 ```bash
 cd backend
