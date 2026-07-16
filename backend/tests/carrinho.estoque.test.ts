@@ -9,18 +9,21 @@ interface ProdutoResumo {
 }
 
 describe("Decremento de estoque no checkout", () => {
-  let cadeiraId: number;
-  let cadeiraEstoque: number;
+  // Não usar produtos[0] da listagem (ordenada por descricaoProduto asc — hoje é a
+  // "Cadeira Gamer ThunderX3"): carrinho.recuperacao.test.ts depende desse índice
+  // sempre ter estoque disponível. Também evitar Notebook/Mouse (cascade.test.ts).
+  let webcamId: number;
+  let webcamEstoque: number;
 
   beforeAll(async () => {
     const response = await request(app).get("/api/produtos");
     const produtos: ProdutoResumo[] = response.body;
 
-    const cadeira = produtos.find(
-      (p) => p.descricaoProduto === "Cadeira Gamer ThunderX3"
+    const webcam = produtos.find(
+      (p) => p.descricaoProduto === "Webcam Logitech C920"
     )!;
-    cadeiraId = cadeira.id;
-    cadeiraEstoque = cadeira.quantidadeEstoque;
+    webcamId = webcam.id;
+    webcamEstoque = webcam.quantidadeEstoque;
   });
 
   it("checkout bem-sucedido decrementa o estoque do produto", async () => {
@@ -28,7 +31,7 @@ describe("Decremento de estoque no checkout", () => {
 
     const criado = await request(app)
       .post("/api/carrinhos")
-      .send({ produtoId: cadeiraId, quantidade: quantidadeComprada });
+      .send({ produtoId: webcamId, quantidade: quantidadeComprada });
     expect(criado.status).toBe(201);
 
     const checkout = await request(app).post(
@@ -40,24 +43,24 @@ describe("Decremento de estoque no checkout", () => {
     const produtosAtualizados: ProdutoResumo[] = (
       await request(app).get("/api/produtos")
     ).body;
-    const cadeiraAtualizada = produtosAtualizados.find((p) => p.id === cadeiraId)!;
+    const webcamAtualizada = produtosAtualizados.find((p) => p.id === webcamId)!;
 
-    expect(cadeiraAtualizada.quantidadeEstoque).toBe(
-      cadeiraEstoque - quantidadeComprada
+    expect(webcamAtualizada.quantidadeEstoque).toBe(
+      webcamEstoque - quantidadeComprada
     );
 
-    cadeiraEstoque = cadeiraAtualizada.quantidadeEstoque;
+    webcamEstoque = webcamAtualizada.quantidadeEstoque;
   });
 
   it("dois carrinhos disputando o mesmo saldo: o segundo checkout falha com 422 e não finaliza", async () => {
     const carrinhoA = await request(app)
       .post("/api/carrinhos")
-      .send({ produtoId: cadeiraId, quantidade: cadeiraEstoque });
+      .send({ produtoId: webcamId, quantidade: webcamEstoque });
     expect(carrinhoA.status).toBe(201);
 
     const carrinhoB = await request(app)
       .post("/api/carrinhos")
-      .send({ produtoId: cadeiraId, quantidade: cadeiraEstoque });
+      .send({ produtoId: webcamId, quantidade: webcamEstoque });
     expect(carrinhoB.status).toBe(201);
 
     const checkoutA = await request(app).post(
@@ -80,8 +83,8 @@ describe("Decremento de estoque no checkout", () => {
     const produtosAtualizados: ProdutoResumo[] = (
       await request(app).get("/api/produtos")
     ).body;
-    const cadeiraAtualizada = produtosAtualizados.find((p) => p.id === cadeiraId)!;
-    expect(cadeiraAtualizada.quantidadeEstoque).toBe(0);
+    const webcamAtualizada = produtosAtualizados.find((p) => p.id === webcamId)!;
+    expect(webcamAtualizada.quantidadeEstoque).toBe(0);
   });
 
   it("checkout de carrinho esvaziado (sem itens) não mexe em nenhum estoque", async () => {
