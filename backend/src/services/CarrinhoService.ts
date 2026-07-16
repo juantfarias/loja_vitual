@@ -349,6 +349,26 @@ export const CarrinhoService = {
     return prisma.$transaction(async (tx) => {
       await buscarCarrinhoAtivoOuFalhar(cartId, tx);
 
+      const itens = await tx.itemCarrinho.findMany({
+        where: { carrinhoId: cartId },
+        include: { produto: true },
+      });
+
+      for (const item of itens) {
+        const resultado = await tx.produto.updateMany({
+          where: { id: item.produtoId, quantidadeEstoque: { gte: item.quantidade } },
+          data: { quantidadeEstoque: { decrement: item.quantidade } },
+        });
+
+        if (resultado.count === 0) {
+          throw new AppError(
+            `Estoque insuficiente para "${item.produto.descricaoProduto}" no momento da finalização.`,
+            422,
+            "UnprocessableEntity"
+          );
+        }
+      }
+
       await tx.carrinho.update({
         where: { id: cartId },
         data: { status: "FINALIZADO" },

@@ -181,7 +181,8 @@
         "responses": {
           "200": { "description": "Carrinho finalizado", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CarrinhoResponse" } } } },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "description": "Carrinho já finalizado (checkout não é idempotente)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+          "409": { "description": "Carrinho já finalizado (checkout não é idempotente)", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+          "422": { "description": "Estoque insuficiente para algum item no momento da finalização (consumido por outro carrinho concorrente); o carrinho permanece ABERTO", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" }, "example": { "error": "UnprocessableEntity", "message": "Estoque insuficiente para \"Cadeira Gamer ThunderX3\" no momento da finalização." } } } }
         }
       }
     }

@@ -385,17 +385,18 @@ Remove o cupom aplicado (`desconto` volta a `0`, `total` volta a igualar o `subt
 
 ### `POST /api/carrinhos/:cartId/checkout`
 
-Finaliza o carrinho: `status` vira `"FINALIZADO"`, travando qualquer mutação futura.
+Finaliza o carrinho: `status` vira `"FINALIZADO"`, travando qualquer mutação futura, e decrementa o estoque de cada produto comprado.
 
 **Sem body.**
 
 **Resposta `200`** — carrinho completo, com `"status": "FINALIZADO"`.
 
 **Erros**
-| Status | Causa                                                    |
-|--------|-----------------------------------------------------------|
-| `404`  | `cartId` malformado/inexistente                           |
-| `409`  | Carrinho **já** finalizado (checkout não é idempotente)  |
+| Status | Causa                                                                             |
+|--------|-------------------------------------------------------------------------------------|
+| `404`  | `cartId` malformado/inexistente                                                    |
+| `409`  | Carrinho **já** finalizado (checkout não é idempotente)                          |
+| `422`  | Estoque insuficiente para algum item no momento da finalização (consumido por outro carrinho concorrente) — nesse caso o carrinho permanece `ABERTO` |
 
 ---
 
@@ -421,6 +422,7 @@ Finaliza o carrinho: `status` vira `"FINALIZADO"`, travando qualquer mutação f
 - **Totais:** `subtotal = Σ precoItem`; `desconto = subtotal × (percentualDesconto / 100)`; `total = subtotal − desconto`.
 - **Adicionar vs. atualizar:** `POST` soma a quantidade enviada à já existente no carrinho; `PUT` substitui.
 - **Estoque:** validado em tempo real a cada adição/atualização, contra `quantidadeEstoque` do produto.
+- **Estoque no checkout:** ao finalizar, o estoque de cada item é decrementado de forma atômica (checagem e decremento na mesma instrução SQL, via `UPDATE ... WHERE quantidadeEstoque >= quantidade`). Se outro carrinho já tiver consumido o saldo, o checkout falha com `422` e o carrinho continua `ABERTO`.
 - **Carrinho finalizado:** nenhuma rota de mutação (`POST`/`PUT`/`DELETE` de itens/cupom) pode alterar um carrinho `FINALIZADO`.
 - **Persistência client-side:** o front salva o `cartId` no `localStorage` e o restaura via `GET /api/carrinhos/:cartId` ao carregar a página — o carrinho sobrevive a um refresh. Carrinhos `FINALIZADO` nunca podem ser excluídos (`DELETE` retorna 409); carrinhos `ABERTO` podem, e é isso que o botão "esvaziar"/"Novo carrinho" faz no front, para não acumular carrinhos abandonados no banco.
 
